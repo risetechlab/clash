@@ -1,11 +1,13 @@
 package trojan
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -36,10 +38,12 @@ var (
 )
 
 type Option struct {
-	Password       string
-	ALPN           []string
-	ServerName     string
-	SkipCertVerify bool
+	Password          string
+	ALPN              []string
+	ServerName        string
+	SkipCertVerify    bool
+	CertSHA1Sum       [20]byte
+	CertSHA1SumVerify bool
 }
 
 type WebsocketOption struct {
@@ -70,6 +74,15 @@ func (t *Trojan) StreamConn(conn net.Conn) (net.Conn, error) {
 	tlsConn := tls.Client(conn, tlsConfig)
 	if err := tlsConn.Handshake(); err != nil {
 		return nil, err
+	}
+
+	if t.option.CertSHA1SumVerify {
+		cert := tlsConn.ConnectionState().PeerCertificates[0]
+		certFingerPrint := sha1.Sum(cert.Raw)
+		if certFingerPrint != t.option.CertSHA1Sum {
+			tlsConn.Close()
+			return nil, fmt.Errorf("server certificate fingerprint %s doesn't match with local specified %s", hex.EncodeToString(certFingerPrint[:]), hex.EncodeToString(t.option.CertSHA1Sum[:]))
+		}
 	}
 
 	return tlsConn, nil

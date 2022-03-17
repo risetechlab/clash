@@ -3,6 +3,7 @@ package outbound
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -36,6 +37,7 @@ type TrojanOption struct {
 	ALPN           []string    `proxy:"alpn,omitempty"`
 	SNI            string      `proxy:"sni,omitempty"`
 	SkipCertVerify bool        `proxy:"skip-cert-verify,omitempty"`
+	CertSHA1Sum    string      `proxy:"cert-sha1sum"`
 	UDP            bool        `proxy:"udp,omitempty"`
 	Network        string      `proxy:"network,omitempty"`
 	GrpcOpts       GrpcOptions `proxy:"grpc-opts,omitempty"`
@@ -164,6 +166,15 @@ func NewTrojan(option TrojanOption) (*Trojan, error) {
 
 	if option.SNI != "" {
 		tOption.ServerName = option.SNI
+	}
+
+	if option.CertSHA1Sum != "" {
+		rawSHA1Sum, err := hex.DecodeString(option.CertSHA1Sum)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode cert sha1sum string: %s", err.Error())
+		}
+		copy(tOption.CertSHA1Sum[:], rawSHA1Sum[:20])
+		tOption.CertSHA1SumVerify = true
 	}
 
 	t := &Trojan{
