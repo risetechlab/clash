@@ -3,6 +3,7 @@ package outboundgroup
 import (
 	"context"
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/Dreamacro/clash/adapter/outbound"
@@ -92,6 +93,8 @@ func (u *URLTest) fast(touch bool) C.Proxy {
 		if u.fastNode == nil || fastNotExist || !u.fastNode.Alive() || u.fastNode.LastDelay() > fast.LastDelay()+u.tolerance {
 			u.fastNode = fast
 		}
+
+		log.Warningf("%s fastest node: %s", u.Name(), u.fastNode.Name())
 
 		return u.fastNode, nil
 	})
