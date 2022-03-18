@@ -38,12 +38,11 @@ var (
 )
 
 type Option struct {
-	Password          string
-	ALPN              []string
-	ServerName        string
-	SkipCertVerify    bool
-	CertSHA1Sum       [20]byte
-	CertSHA1SumVerify bool
+	Password       string
+	ALPN           []string
+	ServerName     string
+	SkipCertVerify bool
+	CertSHA1Sum    *[20]byte
 }
 
 type WebsocketOption struct {
@@ -76,10 +75,10 @@ func (t *Trojan) StreamConn(conn net.Conn) (net.Conn, error) {
 		return nil, err
 	}
 
-	if t.option.CertSHA1SumVerify {
+	if t.option.CertSHA1Sum != nil {
 		cert := tlsConn.ConnectionState().PeerCertificates[0]
 		certFingerPrint := sha1.Sum(cert.Raw)
-		if certFingerPrint != t.option.CertSHA1Sum {
+		if certFingerPrint != *t.option.CertSHA1Sum {
 			tlsConn.Close()
 			return nil, fmt.Errorf("server certificate fingerprint %s doesn't match with local specified %s", hex.EncodeToString(certFingerPrint[:]), hex.EncodeToString(t.option.CertSHA1Sum[:]))
 		}
