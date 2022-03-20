@@ -125,13 +125,41 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (t uint16, err error) {
 
 	doURLTest := func() (t uint16, err error) {
 		start := time.Now()
+
+		if net.ParseIP(addr.Host) == nil {
+			r := &net.Resolver{
+				PreferGo: true,
+				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+					instance, err := p.DialContext(ctx, &C.Metadata{
+						AddrType: C.AtypIPv4,
+						NetWork:  C.TCP,
+						DstIP:    net.ParseIP("1.1.1.1"),
+						DstPort:  "53",
+					})
+					if err != nil {
+						return nil, err
+					}
+					return instance, nil
+				},
+			}
+			ip, _ := r.LookupHost(context.Background(), addr.Host)
+
+			if len(ip) > 0 {
+				log.Warningf("hostname %s resolved as %s via %s", addr.Host, ip[0], p.Name())
+				addr.AddrType = C.AtypIPv4
+				addr.DstIP = net.ParseIP(ip[0])
+			} else {
+				return 0, fmt.Errorf("resolve hostname %s failed via %s", addr.Host, p.Name())
+			}
+		}
+
 		instance, err := p.DialContext(ctx, &addr)
 		if err != nil {
 			return
 		}
 		defer instance.Close()
 
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		req, err := http.NewRequest(http.MethodHead, url, nil)
 		if err != nil {
 			return
 		}
@@ -166,7 +194,7 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (t uint16, err error) {
 		return
 	}
 
-	repeat := 3
+	repeat := 1
 
 	var totalDelay uint16
 	var delay uint16
